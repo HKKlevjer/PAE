@@ -2,7 +2,7 @@ from MOS_6507_bus import bus_6507
 
 class cpu_6507():
     a_register = 0x0000
-    x_register = 0x0000
+    x_register = 0xFF
     y_register = 0x0000
     stack_pointer = 0x0000
     program_counter = 0x000
@@ -10,7 +10,7 @@ class cpu_6507():
     
     
     #2D list represation of the processor statues register
-    processor_statues_register = [["CARRY",False],["ZERO",False],["DISABLE INTERRUPT",False],
+    processor_statues_register = [["CARRY",False],["ZERO",True],["DISABLE INTERRUPT",False],
                                   ["DECIMAL MODE", False], ["Break", False], ["Decimal", False]
                                   ,["OVERFLOW", False], ["Negative",False]]
     
@@ -19,7 +19,7 @@ class cpu_6507():
     
     current_opcode = 0x000
     
-    cycles = 1
+    cycles = 3
     
     
     #initat instacen of bus || change to pointer later
@@ -41,34 +41,41 @@ class cpu_6507():
     #                                                                           #
     #---------------------------------------------------------------------------#
     def IMP(self):
-        return self.read_from_buss(self.program_counter)
+        pass
     
     def IMM(self):
-        print("carring out addressing mode IMM")
         self.addr_abs =  self.program_counter + 1
-        return self.read_from_bus(self.program_counter)
+        print(hex(self.addr_abs))
 
     
     def ZP0(self):
-        self.addr_abs = self.program_counter
+        self.addr_abs = self.read_from_bus(self.program_counter)
         self.program_counter = self.program_counter + 1
-        self.addr_abs = 255
         
     def ZPX(self):
-        self.addr_abs = self.program_counter + self.x_register
+        self.addr_abs = self.read_from_bus(self.program_counter)
+        self.addr_abs = self.addr_abs + self.x_register
+
+        if(self.addr_abs > 0xFF):
+            self.addr_abs = self.addr_abs - 0x100
+
         self.program_counter = self.program_counter + 1
-        self.addr_abs = 255
     
     def ZPY(self):
-        self.addr_abs = self.program_counter + self.y_register
+        self.addr_abs = self.read_from_bus(self.program_counter + self.x_register)
+        
+        if(self.addr_abs > 0xFF):
+            self.addr_abs = self.addr_abs - 0x100
+        
         self.program_counter = self.program_counter + 1
-        self.addr_abs = 255
     
     def ABS(self):
-        Addr_low = self.program_counter
         self.program_counter = self.program_counter + 1
-        Addr_high = self.program_counter
-        self.addr_abs = Addr_low + (Addr_high << 8)
+        low_byte = self.read_from_bus(self.program_counter)
+        self.program_counter = self.program_counter + 1
+        high_byte = self.read_from_bus(self.program_counter)
+        self.addr_abs = low_byte + (high_byte << 8)
+    
     
     def ABX(self):
         Addr_low = self.program_counter
@@ -185,11 +192,18 @@ class cpu_6507():
         pass
     
     def JSR(self):
-        pass
+        self.stack_pointer = self.program_counter-1
+        self.program_counter = self.addr_abs
     
-    def LDA(self,data):
-         print("carring out instuction mode LDA")
-         self.a_register = data
+    def LDA(self):
+        print("pang")
+        data = self.read_from_bus(self.addr_abs)
+        self.a_register = data
+        if(data == 0):
+            self.processor_statues_register[1][1] = True
+        elif((data & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
+         
     
     def LDX(self):
         pass
@@ -286,9 +300,9 @@ class cpu_6507():
         pass
     
     def fetch_next(self):
+        print(hex(self.program_counter))
         data = self.read_from_bus(self.program_counter)
-        self.program_counter = self.program_counter + 1
-        self.cycles = self.cycles -1
+        self.cycles = self.cycles - 1
         return data
     
 
@@ -315,7 +329,7 @@ class cpu_6507():
         while(self.cycles > 0):
            opcode = self.fetch_next()
            data = eval("self." + self.opcode_lookup_string[opcode][1] + "()")
-           eval("self." + self.opcode_lookup_string[opcode][0] + "(data)")
+           eval("self." + self.opcode_lookup_string[opcode][0] + "()")
            
            
         

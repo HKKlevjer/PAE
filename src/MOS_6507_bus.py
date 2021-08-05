@@ -2,8 +2,11 @@ class bus_6507:
     
     #note the MOS 6507 can only address 8kbit of memory
     ram = [0]*8*1024
-    ram[0] = 0xA9
-    ram[1] = 0xFF
+    ram[0] = 0x20
+    ram[1] = 0x01
+    ram[2] = 0x01
+    ram[0x0101] = 0xA9
+    ram[0x0102] = 0x84
     def __init__(self):
         pass
 
