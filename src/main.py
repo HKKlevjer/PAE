@@ -7,8 +7,12 @@ def main():
     bus = bus_6507()
     cpu = cpu_6507(bus = bus)
 
+    
+    print(bin(cpu.a_register))
+    print(cpu.processor_statues_register[0][1])
     cpu.execute()
-    print(cpu.a_register)
+    print(bin(cpu.a_register))
+    print(cpu.processor_statues_register[0][1])
     
 
 if __name__=="__main__":
