@@ -8,11 +8,9 @@ def main():
     cpu = cpu_6507(bus = bus)
 
     
-    print(bin(cpu.a_register))
-    print(cpu.processor_statues_register[0][1])
+    print(cpu.processor_statues_register)
     cpu.execute()
-    print(bin(cpu.a_register))
-    print(cpu.processor_statues_register[0][1])
+    print(cpu.processor_statues_register)
     
 
 if __name__=="__main__":
