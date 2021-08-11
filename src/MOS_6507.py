@@ -2,11 +2,10 @@ from MOS_6507_bus import bus_6507
 
 class cpu_6507():
     a_register = 0x0000
-    x_register = 0xFF
+    x_register = 0x0000
     y_register = 0x0000
     stack_pointer = 0x0000
     program_counter = 0x000
-    
     
     
     #2D list represation of the processor statues register
@@ -90,23 +89,38 @@ class cpu_6507():
         self.addr_abs = Addr_low + (Addr_high << 8) + self.y_register
     
     def IND(self):
-        Addr_low = self.program_counter
+        Addr_low = self.read_from_bus(self.program_counter)
         self.program_counter = self.program_counter + 1
-        Addr_high = self.program_counter
+        Addr_high = self.read_from_bus(self.program_counter)
         self.program_counter = self.program_counter + 1
-
+        self.addr_abs = Addr_low + (Addr_high << 8)
 
     
     def IZX(self):
-        pass
+        Addr_low = self.read_from_bus(self.program_counter)
+        self.program_counter = self.program_counter + 1
+        Addr_high = self.read_from_bus(self.program_counter)
+        self.program_counter = self.program_counter + 1
+        self.addr_abs = Addr_low + (Addr_high << 8) + self.x_register
     
     def IZY(self):
-        pass
+        Addr_low = self.read_from_bus(self.program_counter)
+        self.program_counter = self.program_counter + 1
+        Addr_high = self.read_from_bus(self.program_counter)
+        self.program_counter = self.program_counter + 1
+        self.addr_abs = Addr_low + (Addr_high << 8) + self.x_register
        
     def REL(self):
         pass
     
-    #method reperesenting of Opcodes
+
+    #---------------------------------------------------------------------------#
+    #                                                                           #
+    #                              Instructions                                 #
+    #                                                                           #
+    #---------------------------------------------------------------------------#
+
+
     def ADC(self):
         pass
     
@@ -147,46 +161,80 @@ class cpu_6507():
         pass
     
     def CLC(self):
-        pass
+        self.processor_statues_register[0][1] = False
     
     def CLD(self):
-        pass
+        self.processor_statues_register[3][1] = False
     
     def CLI(self):
-        pass
-    
+        self.processor_statues_register[2][1] = False
+   
     def CLV(self):
-        pass
+        self.processor_statues_register[6][1] = False
     
     def CMP(self):
-        pass
+        if(self.a_register >= self.read_from_bus(self.addr_abs)):
+            self.processor_statues_register[0][1] = True
+        elif(self.a_register >= self.read_from_bus(self.addr_abs)):
+            self.processor_statues_register[1][1] = True
+        elif(self.a_register - self.read_from_bus(self.addr_abs)< 0):
+            self.processor_statues_register[6][1] = True
     
     def CPX(self):
-        pass
+        if(self.x_register >= self.read_from_bus(self.addr_abs)):
+            self.processor_statues_register[0][1] = True
+        elif(self.x_register >= self.read_from_bus(self.addr_abs)):
+            self.processor_statues_register[1][1] = True
+        elif(self.x_register - self.read_from_bus(self.addr_abs)< 0):
+            self.processor_statues_register[6][1] = True
     
     def CPY(self):
-        pass
+        if(self.y_register >= self.read_from_bus(self.addr_abs)):
+            self.processor_statues_register[0][1] = True
+        elif(self.y_register >= self.read_from_bus(self.addr_abs)):
+            self.processor_statues_register[1][1] = True
+        elif(self.y_register - self.read_from_bus(self.addr_abs)< 0):
+            self.processor_statues_register[6][1] = True
     
     def DEC(self):
-        pass
+        data = self.read_from_bus(self.addr_abs) - 1
+        self.write_to_bus(self.addr_abs, data)
     
     def DEX(self):
-        pass
+        self.x_register = self.x_register - 1
+        if(self.x_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.x_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
+    
     
     def DEY(self):
-        pass
+        self.y_register = self.y_register - 1
     
     def EOR(self):
         pass
     
     def INC(self):
-        pass
+        data = self.read_from_bus(self.addr_abs) + 1
+        self.write_to_bus(self.addr_abs, data)
+        if(data == 0):
+            self.processor_statues_register[1][1] = True
+        elif((data & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def INX(self):
-        pass
+        self.x_register = self.x_register + 1
+        if(self.x_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.x_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def INY(self):
-        pass
+        self.y_register = self.y_register + 1
+        if(self.y_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.y_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def JMP(self):
         pass
@@ -196,7 +244,6 @@ class cpu_6507():
         self.program_counter = self.addr_abs
     
     def LDA(self):
-        print("pang")
         data = self.read_from_bus(self.addr_abs)
         self.a_register = data
         if(data == 0):
@@ -206,13 +253,25 @@ class cpu_6507():
          
     
     def LDX(self):
-        pass
+        data = self.read_from_bus(self.addr_abs)
+        self.x_register = data
+        if(data == 0):
+            self.processor_statues_register[1][1] = True
+        elif((data & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def LDY(self):
-        pass
+        data = self.read_from_bus(self.addr_abs)
+        self.y_register = data
+        if(data == 0):
+            self.processor_statues_register[1][1] = True
+        elif((data & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def LSR(self):
-        pass
+        if(self.current_opcode == 0x4A):
+            data = self.a_register
+            self.processor_statues_register[0][1] = (ddl & 0b00000001)
     
     def NOP(self):
         pass
@@ -248,40 +307,63 @@ class cpu_6507():
         pass
     
     def SEC(self):
-        pass
+        self.processor_statues_register[0][1] = True
     
     def SED(self):
-        pass
+        self.processor_statues_register[3][1] = True
+
 
     def SEI(self):
-        pass
+        self.processor_statues_register[2][1] = True
+
     
     def STA(self):
-        print("ping")
+        self.write_to_bus(self.addr_abs,self.a_register)
     
     def STX(self):
-        pass
+        self.write_to_bus(self.addr_abs,self.x_register)
     
     def STY(self):
-        pass
+        self.write_to_bus(self.addr_abs,self.y_register)
     
     def TAX(self):
-        pass
+        self.x_register = self.a_register
+        if(self.x_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.x_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def TAY(self):
-        pass
+        self.y_register = self.a_register
+        if(self.y_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.y_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def TSX(self):
-        pass
+        self.x_register = self.stack_pointer
+        if(self.x_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.x_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def TXA(self):
-        pass
+        self.a_register = self.x_register
+        if(self.a_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.a_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     def TXS(self):
-        pass
+        self.stack_pointer = self.x_register
+        
     
     def TYA(self):
-        pass
+        self.a_register = self.y_register
+        if(self.a_register == 0):
+            self.processor_statues_register[1][1] = True
+        elif((self.a_register & 0b10000000) > 0 ):
+            self.processor_statues_register[7][1] = True
     
     #function called when an illegal code is used
     def ILG(self):
@@ -327,7 +409,7 @@ class cpu_6507():
     
     def execute(self):
         while(self.cycles > 0):
-           opcode = self.fetch_next()
+           self.current_opcode = self.fetch_next()
            data = eval("self." + self.opcode_lookup_string[opcode][1] + "()")
            eval("self." + self.opcode_lookup_string[opcode][0] + "()")
            
