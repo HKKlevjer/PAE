@@ -4,9 +4,10 @@ class cpu_6507():
     a_register = 0x00
     x_register = 0x0000
     y_register = 0x0000
-    stack_pointer = 0x0000
+    stack_pointer = 0x00FD
     program_counter = 0x000
     
+
     
     #list represation of the processor statues register
     # Explenentaion of register
@@ -83,13 +84,13 @@ class cpu_6507():
     
     
     def ABX(self):
-        Addr_low = self.program_counter
+        Addr_low = self.program_counter 
         self.program_counter = self.program_counter + 1
-        Addr_high = self.program_counter
-        self.addr_abs = Addr_low + (Addr_high << 8) + self.x_register
+        Addr_high = self.program_counter + self.x_register
+        self.addr_abs = Addr_low + (Addr_high << 8) 
     
     def ABY(self):
-        Addr_low = self.program_counter
+        Addr_low = self.program_counter 
         self.program_counter = self.program_counter + 1
         Addr_high = self.program_counter
         self.addr_abs = Addr_low + (Addr_high << 8) + self.y_register
@@ -99,27 +100,34 @@ class cpu_6507():
         self.program_counter = self.program_counter + 1
         Addr_high = self.read_from_bus(self.program_counter)
         self.program_counter = self.program_counter + 1
-        self.addr_abs = Addr_low + (Addr_high << 8)
-
+        addr_full = Addr_low + (Addr_high << 8)
+        if(Addr_low == 0x00FF):
+            self.addr_abs = self.read_from_bus(addr_full) + (self.read_from_bus(addr_full & 0xFF00) << 8)
+        else:
+            self.addr_abs = self.read_from_bus(addr_full) + (self.read_from_bus(addr_full + 1) << 8)
     
     def IZX(self):
-        Addr_low = self.read_from_bus(self.program_counter)
+        Addr_low = self.read_from_bus(self.program_counter) + self.x_register
         self.program_counter = self.program_counter + 1
-        Addr_high = self.read_from_bus(self.program_counter)
+        Addr_high = self.read_from_bus(self.program_counter) + self.x_register
         self.program_counter = self.program_counter + 1
-        self.addr_abs = Addr_low + (Addr_high << 8) + self.x_register
+        addr_full = Addr_low + (Addr_high << 8) 
+        self.addr_abs = self.read_from_bus(addr_full) + (self.read_from_bus(addr_full + 1) << 8)
     
     def IZY(self):
-        Addr_low = self.read_from_bus(self.program_counter)
+        Addr_low = self.read_from_bus(self.program_counter) + self.y_register
         self.program_counter = self.program_counter + 1
-        Addr_high = self.read_from_bus(self.program_counter)
+        Addr_high = self.read_from_bus(self.program_counter) + self.y_register
         self.program_counter = self.program_counter + 1
-        self.addr_abs = Addr_low + (Addr_high << 8) + self.x_register
+        addr_full = Addr_low + (Addr_high << 8) 
+        self.addr_abs = self.read_from_bus(addr_full) + (self.read_from_bus(addr_full + 1) << 8)
        
     def REL(self):
-        pass
-    
-
+        addr_rel = self.read_from_bus(self.program_counter)
+        self.program_counter = self.program_counter + 1
+        if(addr_rel & 0b10000000 > 0):
+            addr_rel |= 0xFF00
+            
     #---------------------------------------------------------------------------#
     #                                                                           #
     #                              Instructions                                 #
@@ -128,61 +136,94 @@ class cpu_6507():
 
 
     def ADC(self):
-        pass
+        temp = self.a_register + self.read_from_bus(self.addr_abs) + int(self.processor_statues_register[0])
+        
+        self.processor_statues_register[0] = ( temp > 0x00FF)
+        self.processor_statues_register[1] = ((temp & 0x00FF) == 0)
+        self.processor_statues_register[6] = ((~(self.a_register ^ temp) & (self.a_register ^ temp)) & 0b10000000)
+        self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
+
+        self.a_register = temp & 0x00FF
     
     def AND(self):
-        pass
+        self.a_register = self.a_register & self.read_from_bus(self.addr_abs)
+        
+        self.processor_statues_register[1] = ((self.a_register & 0x00FF) == 0)
+        self.processor_statues_register[7] = ((self.a_register & 0b10000000) > 0)
     
     def ASL(self):
         if(self.current_opcode == 0x0A):
-            data = self.a_register
-            data = (data << 1)
+            temp = self.a_register
+            temp = (temp << 1)
             
-            self.processor_statues_register[0] = ((data & 0xFF00) > 0)
-            self.processor_statues_register[1] = ((data & 0x00FF) == 0)
-            self.processor_statues_register[7] = ((data & 0b10000000) > 0)
+            self.processor_statues_register[0] = ((temp & 0xFF00) > 0)
+            self.processor_statues_register[1] = ((temp & 0x00FF) == 0)
+            self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
             
-            self.a_register = data
+            self.a_register = temp
         else:
             data = self.read_from_bus(self.addr_abs)
             data = (data << 1)
             
-            self.processor_statues_register[0] = ((data & 0xFF00) > 0)
-            self.processor_statues_register[1] = ((data & 0x00FF) == 0)
-            self.processor_statues_register[7] = ((data & 0b10000000) > 0)
+            self.processor_statues_register[0] = ((temp & 0xFF00) > 0)
+            self.processor_statues_register[1] = ((temp & 0x00FF) == 0)
+            self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
             
-            self.write_to_bus(self.addr_abs,data)
+            self.write_to_bus(self.addr_abs,temp)
 
     
     def BCC(self):
-        pass
+        if( self.processor_statues_register[0] == False):
+            self.program_counter = self.addr_rel
     
     def BCS(self):
-        pass
+        if( self.processor_statues_register[0] == True):
+            self.program_counter = self.addr_rel
     
     def BEQ(self):
-        pass
+        if( self.processor_statues_register[1] == True):
+            self.program_counter = self.addr_rel
     
     def BIT(self):
-        pass
-    
+        temp = self.a_register & self.read_from_bus(self.abbs_adr)
+        self.processor_statues_register[0] = ((temp & 0x00FF) == 0)
+        self.processor_statues_register[1] = (temp & 0b10000000 > 0)
+        self.processor_statues_register[6] = (temp & 0b01000000 > 0)
+        
+        
     def BMI(self):
-        pass
+        if( self.processor_statues_register[7] == True):
+            self.program_counter = self.addr_rel
     
     def BNE(self):
-        pass
+        if( self.processor_statues_register[1] == False):
+            self.program_counter = self.addr_rel
     
     def BPL(self):
-        pass
+        if( self.processor_statues_register[7] == False):
+            self.program_counter = self.addr_rel
     
     def BRK(self):
-        pass
+        self.processor_statues_register[4] = True
+        
+        self.write_to_bus(0x0100 + self.stack_pointer, (self.program_counter >> 8) & 0x00FF)
+        self.stack_pointer = self.stack_pointer - 1
+        self.write_to_bus(0x0100 + self.stack_pointer, self.program_counter & 0x00FF)
+        self.stack_pointer = self.stack_pointer - 1
+        
+        self.write_to_bus(0x0100 + self.stack_pointer, self.status_reg_to_decimal())
+        
+        self.processor_statues_register[4] = False
+        
+        self.program_counter = self.read_from_bus(0xFFFE) + (self.read_from_bus(0xFFFF) << 8)
     
     def BVC(self):
-        pass
+        if( self.processor_statues_register[6] == False):
+            self.program_counter = self.addr_rel
     
     def BVS(self):
-        pass
+        if( self.processor_statues_register[6] == True):
+            self.program_counter = self.addr_rel
     
     def CLC(self):
         self.processor_statues_register[0] = False
@@ -212,8 +253,8 @@ class cpu_6507():
         self.processor_statues_register[6] = (self.y_register - self.read_from_bus(self.addr_abs)< 0)
     
     def DEC(self):
-        data = self.read_from_bus(self.addr_abs) - 1
-        self.write_to_bus(self.addr_abs, data)
+        temp = self.read_from_bus(self.addr_abs) - 1
+        self.write_to_bus(self.addr_abs, temp)
     
     def DEX(self):
         self.x_register = self.x_register - 1
@@ -230,7 +271,10 @@ class cpu_6507():
         self.processor_statues_register[7] = ((self.y_register & 0b10000000) > 0)
     
     def EOR(self):
-        pass
+        self.a_register = self.a_register | self.read_from_bus(self.addr_abs)
+        
+        self.processor_statues_register[1] = (self.a_register == 0)
+        self.processor_statues_register[7] = ((self.a_register & 0b10000000) > 0)
     
     def INC(self):
         data = self.read_from_bus(self.addr_abs) + 1
@@ -255,50 +299,55 @@ class cpu_6507():
         self.program_counter =  self.read_from_bus(self.addr_abs)
     
     def JSR(self):
-        self.stack_pointer = self.program_counter-1
+        
+        self.write_to_bus(0x0100, (self.program_counter >> 8) & 0x00FF)
+        self.program_counter = self.program_counter-1
+        self.write_to_bus(0x0100, (self.program_counter) & 0x00FF)
+        self.program_counter = self.program_counter-1
+        
         self.program_counter = self.addr_abs
     
     def LDA(self):
-        data = self.read_from_bus(self.addr_abs)
-        self.a_register = data
+        temp = self.read_from_bus(self.addr_abs)
+        self.a_register = temp
         
-        self.processor_statues_register[1] = (data == 0)
-        self.processor_statues_register[7] = ((data & 0b10000000) > 0)
+        self.processor_statues_register[1] = (temp == 0)
+        self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
          
     
     def LDX(self):
-        data = self.read_from_bus(self.addr_abs)
-        self.x_register = data
+        temp = self.read_from_bus(self.addr_abs)
+        self.x_register = temp
         
-        self.processor_statues_register[1] = (data == 0)
-        self.processor_statues_register[7] = ((data & 0b10000000) > 0)
+        self.processor_statues_register[1] = (temp == 0)
+        self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
     
     def LDY(self):
-        data = self.read_from_bus(self.addr_abs)
-        self.y_register = data
+        temp = self.read_from_bus(self.addr_abs)
+        self.y_register = temp
         
-        self.processor_statues_register[1] = (data == 0)
-        self.processor_statues_register[7] = ((data & 0b10000000) > 0)
+        self.processor_statues_register[1] = (temp == 0)
+        self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
     
     def LSR(self):
         if(self.current_opcode == 0x4A):
-            data = self.a_register
-            self.processor_statues_register[0] = bool(data & 0b00000001)
-            data = (data >> 1)
+            temp = self.a_register
+            self.processor_statues_register[0] = bool(temp & 0b00000001)
+            temp = (temp >> 1)
             
-            self.processor_statues_register[1] = (data == 0)
-            self.processor_statues_register[7] = ((data & 0b10000000) > 0)
+            self.processor_statues_register[1] = (temp == 0)
+            self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
             
-            self.a_register = data
+            self.a_register = temp
         else:
-            data = self.read_from_bus(self.addr_abs)
-            self.processor_statues_register[0] = bool(data & 0b00000001)
-            data = (data >> 1)
+            temp = self.read_from_bus(self.addr_abs)
+            self.processor_statues_register[0] = bool(temp & 0b00000001)
+            temp = (temp >> 1)
             
-            self.processor_statues_register[1] = (data == 0)
-            self.processor_statues_register[7] = ((data & 0b10000000) > 0)
+            self.processor_statues_register[1] = (temp == 0)
+            self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
             
-            self.write_to_bus(self.addr_abs, data)
+            self.write_to_bus(self.addr_abs, temp)
     
     def NOP(self):
         pass
@@ -370,13 +419,33 @@ class cpu_6507():
             self.write_to_bus(self.addr_abs, (data & 0x00FF))
     
     def RTI(self):
-        pass
+           self.processor_statues_register[4] = True
+           
+           self.processor_statues_register = self.decimal_to_status_reg(self.read_from_bus(0x0100 + self.stack_pointer))
+           
+           self.stack_pointer = self.stack_pointer + 1
+           self.program_counter = self.read_from_bus(0x0100 + self.stack_pointer)
+           self.stack_pointer = self.stack_pointer + 1
+           
+           self.program_counter |= (self.read_from_bus(0x0100 + self.stack_pointer) << 8)
     
     def RTS(self):
-        pass
+        self.stack_pointer = self.stack_pointer + 1
+        self.program_counter = self.read_from_bus(0x0100 + self.stack_pointer)
+        self.stack_pointer = self.stack_pointer + 1
+        
+        self.program_counter |= (self.read_from_bus(0x0100 + self.stack_pointer) << 8)
     
     def SBC(self):
-        pass
+        value = self.read_from_bus(self.addr_abs) & 0x00FF
+        temp = self.a_register + value + int(self.processor_statues_register[0])
+        
+        self.processor_statues_register[0] = ( temp > 0x00FF)
+        self.processor_statues_register[1] = ((temp & 0x00FF) == 0)
+        self.processor_statues_register[6] = ((( temp ^ self.a_register) & (temp ^ value)) & 0b10000000)
+        self.processor_statues_register[7] = ((temp & 0b10000000) > 0)
+
+        self.a_register = temp & 0x00FF
     
     def SEC(self):
         self.processor_statues_register[0] = True
